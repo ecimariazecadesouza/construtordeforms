@@ -1,0 +1,167 @@
+import React, { useState } from "react";
+import { Form } from "@/entities/all";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, Save, Plus } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { motion } from "framer-motion";
+
+import QuestionEditor from "../components/forms/QuestionEditor";
+
+export default function CreateForm() {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    questions: []
+  });
+  const [saving, setSaving] = useState(false);
+
+  const addQuestion = () => {
+    const newQuestion = {
+      id: Date.now().toString(),
+      text: "",
+      type: "multiple_choice",
+      required: false,
+      options: [
+        { text: "", limit: 0, responses_count: 0 },
+        { text: "", limit: 0, responses_count: 0 }
+      ]
+    };
+    
+    setFormData(prev => ({
+      ...prev,
+      questions: [...prev.questions, newQuestion]
+    }));
+  };
+
+  const updateQuestion = (questionId, updates) => {
+    setFormData(prev => ({
+      ...prev,
+      questions: prev.questions.map(q => 
+        q.id === questionId ? { ...q, ...updates } : q
+      )
+    }));
+  };
+
+  const deleteQuestion = (questionId) => {
+    setFormData(prev => ({
+      ...prev,
+      questions: prev.questions.filter(q => q.id !== questionId)
+    }));
+  };
+
+  const handleSave = async () => {
+    if (!formData.title.trim()) {
+      alert("Por favor, adicione um título ao formulário");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await Form.create(formData);
+      navigate(createPageUrl("Forms"));
+    } catch (error) {
+      console.error("Erro ao salvar formulário:", error);
+      alert("Erro ao salvar formulário. Tente novamente.");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="p-6 md:p-8 bg-slate-50 min-h-screen">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center gap-4 mb-8">
+          <Link to={createPageUrl("Forms")}>
+            <Button variant="outline" size="icon" className="hover:bg-slate-100">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+          </Link>
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold text-slate-900">Criar Formulário</h1>
+            <p className="text-slate-600 mt-1">Configure perguntas e limites personalizados</p>
+          </div>
+          <Button 
+            onClick={handleSave} 
+            disabled={saving}
+            className="bg-green-600 hover:bg-green-700 shadow-lg"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            {saving ? "Salvando..." : "Salvar"}
+          </Button>
+        </div>
+
+        <div className="space-y-6">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <Card className="shadow-lg border-0 bg-white">
+              <CardHeader className="border-b border-slate-100">
+                <CardTitle className="text-slate-900">Informações Básicas</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Título do Formulário *
+                  </label>
+                  <Input
+                    placeholder="Ex: Pedido de Camisetas Personalizadas"
+                    value={formData.title}
+                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                    className="border-slate-200 focus:border-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Descrição (opcional)
+                  </label>
+                  <Textarea
+                    placeholder="Descreva o objetivo do seu formulário..."
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    className="border-slate-200 focus:border-blue-500"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {formData.questions.map((question, index) => (
+            <motion.div
+              key={question.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+            >
+              <QuestionEditor
+                question={question}
+                onUpdate={updateQuestion}
+                onDelete={deleteQuestion}
+                questionNumber={index + 1}
+              />
+            </motion.div>
+          ))}
+
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center"
+          >
+            <Button
+              onClick={addQuestion}
+              variant="outline"
+              className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 shadow-sm"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar Pergunta
+            </Button>
+          </motion.div>
+        </div>
+      </div>
+    </div>
+  );
+}
