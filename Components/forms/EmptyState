@@ -1,0 +1,37 @@
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { FileText, Plus } from "lucide-react";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { motion } from "framer-motion";
+
+export default function EmptyState() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="text-center py-16"
+    >
+      <div className="max-w-md mx-auto">
+        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <FileText className="w-10 h-10 text-slate-400" />
+        </div>
+        
+        <h3 className="text-xl font-semibold text-slate-900 mb-2">
+          Nenhum formulário criado
+        </h3>
+        
+        <p className="text-slate-600 mb-8">
+          Crie seu primeiro formulário com limites personalizados para cada opção
+        </p>
+        
+        <Link to={createPageUrl("CreateForm")}>
+          <Button className="bg-blue-600 hover:bg-blue-700 shadow-lg">
+            <Plus className="w-5 h-5 mr-2" />
+            Criar Primeiro Formulário
+          </Button>
+        </Link>
+      </div>
+    </motion.div>
+  );
+}
