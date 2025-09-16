@@ -1,0 +1,109 @@
+import React, { useState, useEffect } from "react";
+import { Form } from "@/entities/all";
+import { Button } from "@/components/ui/button";
+import { Plus, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Link } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { motion } from "framer-motion";
+
+import FormCard from "../components/forms/FormCard";
+import EmptyState from "../components/forms/EmptyState";
+
+export default function Forms() {
+  const [forms, setForms] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadForms();
+  }, []);
+
+  const loadForms = async () => {
+    setLoading(true);
+    try {
+      const data = await Form.list("-created_date");
+      setForms(data);
+    } catch (error) {
+      console.error("Erro ao carregar formulários:", error);
+    }
+    setLoading(false);
+  };
+
+  const filteredForms = forms.filter(form =>
+    form.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (form.description && form.description.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  return (
+    <div className="p-6 md:p-8 bg-slate-50 min-h-screen">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+          >
+            <h1 className="text-3xl font-bold text-slate-900">Meus Formulários</h1>
+            <p className="text-slate-600 mt-1">Gerencie todos os seus formulários</p>
+          </motion.div>
+          
+          <Link to={createPageUrl("CreateForm")}>
+            <Button className="bg-blue-600 hover:bg-blue-700 shadow-lg">
+              <Plus className="w-5 h-5 mr-2" />
+              Novo Formulário
+            </Button>
+          </Link>
+        </div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <Input
+              placeholder="Buscar formulários..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-white border-slate-200 focus:border-blue-500"
+            />
+          </div>
+        </motion.div>
+
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array(6).fill(0).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl p-6 shadow-sm border animate-pulse">
+                <div className="h-6 bg-slate-200 rounded mb-4"></div>
+                <div className="h-4 bg-slate-200 rounded mb-2"></div>
+                <div className="h-4 bg-slate-200 rounded w-2/3"></div>
+              </div>
+            ))}
+          </div>
+        ) : filteredForms.length === 0 && searchTerm === "" ? (
+          <EmptyState />
+        ) : filteredForms.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-slate-500">Nenhum formulário encontrado para "{searchTerm}"</p>
+          </div>
+        ) : (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
+            {filteredForms.map((form, index) => (
+              <FormCard
+                key={form.id}
+                form={form}
+                index={index}
+                onUpdate={loadForms}
+              />
+            ))}
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+}
