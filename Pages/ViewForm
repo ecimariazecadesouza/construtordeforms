@@ -1,0 +1,279 @@
+
+import React, { useState, useEffect, useCallback } from "react";
+import { useSearchParams, Link, useNavigate } from "react-router-dom";
+import { Form, Response } from "@/entities/all";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AlertCircle, CheckCircle, ArrowLeft, Send } from "lucide-react";
+import { createPageUrl } from "@/utils";
+import { motion } from "framer-motion";
+import { Badge } from "@/components/ui/badge";
+
+const FormSkeleton = () => (
+  <Card className="shadow-lg border-0 bg-white">
+    <CardHeader>
+      <Skeleton className="h-8 w-3/4 mb-2" />
+      <Skeleton className="h-4 w-1/2" />
+    </CardHeader>
+    <CardContent className="space-y-8">
+      {Array(2).fill(0).map((_, i) => (
+        <div key={i} className="space-y-4">
+          <Skeleton className="h-5 w-2/3" />
+          <div className="space-y-3">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        </div>
+      ))}
+      <Skeleton className="h-12 w-full mt-6" />
+    </CardContent>
+  </Card>
+);
+
+export default function ViewForm() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const formId = searchParams.get("id");
+
+  const [form, setForm] = useState(null);
+  const [answers, setAnswers] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState(null);
+  const [validationErrors, setValidationErrors] = useState({});
+
+  const loadForm = useCallback(async () => {
+    try {
+      const formData = await Form.get(formId);
+      if (!formData) {
+        setError("Formulário não encontrado.");
+      } else {
+        setForm(formData);
+      }
+    } catch (err) {
+      setError("Erro ao carregar o formulário.");
+      console.error(err);
+    }
+    setLoading(false);
+  }, [formId]);
+
+  useEffect(() => {
+    if (!formId) {
+      setError("ID do formulário não fornecido.");
+      setLoading(false);
+      return;
+    }
+    loadForm();
+  }, [formId, loadForm]);
+
+  const handleAnswerChange = (questionId, value) => {
+    setAnswers(prev => ({ ...prev, [questionId]: value }));
+    if (validationErrors[questionId]) {
+      setValidationErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[questionId];
+        return newErrors;
+      });
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    form.questions.forEach(q => {
+      if (q.required && !answers[q.id]?.trim()) {
+        errors[q.id] = "Esta pergunta é obrigatória.";
+      }
+    });
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    setSubmitting(true);
+
+    try {
+      const updatedForm = { ...form };
+      updatedForm.total_responses = (updatedForm.total_responses || 0) + 1;
+
+      Object.entries(answers).forEach(([questionId, answer]) => {
+        const question = updatedForm.questions.find(q => q.id === questionId);
+        if (question && question.type === "multiple_choice") {
+          const option = question.options.find(opt => opt.text === answer);
+          if (option) {
+            option.responses_count = (option.responses_count || 0) + 1;
+          }
+        }
+      });
+      
+      const answersArray = Object.entries(answers).map(([question_id, answer]) => ({
+        question_id,
+        answer,
+      }));
+
+      await Promise.all([
+        Response.create({ form_id: formId, answers: answersArray }),
+        Form.update(formId, { 
+          questions: updatedForm.questions,
+          total_responses: updatedForm.total_responses,
+        }),
+      ]);
+      
+      setSubmitted(true);
+    } catch (err) {
+      setError("Ocorreu um erro ao enviar sua resposta. Tente novamente.");
+      console.error(err);
+    }
+
+    setSubmitting(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 md:p-8 bg-slate-50 min-h-screen">
+        <div className="max-w-2xl mx-auto">
+          <FormSkeleton />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-6">
+        <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+        <h2 className="text-2xl font-bold text-slate-800 mb-2">{error}</h2>
+        <p className="text-slate-600 mb-6">Verifique o link ou tente novamente mais tarde.</p>
+        <Link to={createPageUrl("Forms")}>
+          <Button variant="outline">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Voltar para Formulários
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+  
+  if (submitted) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-6 text-center">
+        <motion.div
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+        >
+          <CheckCircle className="w-20 h-20 text-green-500 mb-6 mx-auto" />
+          <h2 className="text-3xl font-bold text-slate-800 mb-2">Resposta Enviada!</h2>
+          <p className="text-slate-600 text-lg mb-8">Obrigado por sua participação.</p>
+          <Link to={createPageUrl("Forms")}>
+            <Button>
+              Voltar para a Lista de Formulários
+            </Button>
+          </Link>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (!form.is_active) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-6">
+        <AlertCircle className="w-16 h-16 text-yellow-500 mb-4" />
+        <h2 className="text-2xl font-bold text-slate-800 mb-2">Este formulário não está mais aceitando respostas.</h2>
+        <Link to={createPageUrl("Forms")}>
+          <Button variant="outline">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Voltar
+          </Button>
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-6 md:p-8 bg-slate-50 min-h-screen">
+      <div className="max-w-2xl mx-auto">
+        <Card className="shadow-xl border-0 bg-white">
+          <CardHeader className="bg-slate-50 p-6 border-b">
+            <CardTitle className="text-3xl font-bold text-slate-900">{form.title}</CardTitle>
+            {form.description && (
+              <CardDescription className="text-slate-600 text-base pt-2">{form.description}</CardDescription>
+            )}
+          </CardHeader>
+          <CardContent className="p-6 md:p-8">
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {form.questions.map((q, index) => (
+                <motion.div
+                  key={q.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="p-6 bg-slate-50/50 rounded-lg border border-slate-100"
+                >
+                  <Label className="text-lg font-semibold text-slate-800 mb-4 block">
+                    {q.text} {q.required && <span className="text-red-500">*</span>}
+                  </Label>
+                  
+                  {q.type === "multiple_choice" && (
+                    <RadioGroup onValueChange={(value) => handleAnswerChange(q.id, value)}>
+                      <div className="space-y-3">
+                        {q.options.map((opt, i) => {
+                          const isSoldOut = opt.limit > 0 && opt.responses_count >= opt.limit;
+                          return (
+                            <Label 
+                              key={i} 
+                              className={`flex items-center p-4 rounded-lg border transition-all ${isSoldOut ? 'bg-slate-100 cursor-not-allowed text-slate-500' : 'bg-white cursor-pointer hover:border-blue-500'}`}
+                            >
+                              <RadioGroupItem value={opt.text} id={`${q.id}-${i}`} disabled={isSoldOut} />
+                              <span className="ml-3 flex-1">{opt.text}</span>
+                              {isSoldOut && (
+                                <Badge variant="destructive" className="bg-red-100 text-red-700">Esgotado</Badge>
+                              )}
+                            </Label>
+                          );
+                        })}
+                      </div>
+                    </RadioGroup>
+                  )}
+
+                  {q.type === "text" && (
+                    <Textarea 
+                      onChange={(e) => handleAnswerChange(q.id, e.target.value)}
+                      placeholder="Sua resposta..."
+                      className="bg-white"
+                    />
+                  )}
+
+                  {(q.type === "email" || q.type === "number") && (
+                    <Input 
+                      type={q.type}
+                      onChange={(e) => handleAnswerChange(q.id, e.target.value)}
+                      placeholder={q.type === 'email' ? 'seu.email@exemplo.com' : 'Digite um número'}
+                      className="bg-white"
+                    />
+                  )}
+
+                  {validationErrors[q.id] && (
+                    <p className="text-red-500 text-sm mt-2">{validationErrors[q.id]}</p>
+                  )}
+                </motion.div>
+              ))}
+
+              <Button type="submit" disabled={submitting} className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6 shadow-lg">
+                <Send className="w-5 h-5 mr-2" />
+                {submitting ? "Enviando..." : "Enviar Resposta"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
