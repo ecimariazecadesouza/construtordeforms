@@ -1,0 +1,166 @@
+import React from "react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Trash2, Plus, AlertCircle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+
+export default function QuestionEditor({ question, onUpdate, onDelete, questionNumber }) {
+  const handleTypeChange = (newType) => {
+    const updates = { type: newType };
+    
+    if (newType === "multiple_choice") {
+      updates.options = [
+        { text: "", limit: 0, responses_count: 0 },
+        { text: "", limit: 0, responses_count: 0 }
+      ];
+    } else {
+      updates.options = [];
+    }
+    
+    onUpdate(question.id, updates);
+  };
+
+  const addOption = () => {
+    const newOptions = [...(question.options || []), { text: "", limit: 0, responses_count: 0 }];
+    onUpdate(question.id, { options: newOptions });
+  };
+
+  const removeOption = (index) => {
+    if (question.options.length > 2) {
+      const newOptions = question.options.filter((_, i) => i !== index);
+      onUpdate(question.id, { options: newOptions });
+    }
+  };
+
+  const updateOption = (index, field, value) => {
+    const newOptions = [...question.options];
+    newOptions[index] = { ...newOptions[index], [field]: value };
+    onUpdate(question.id, { options: newOptions });
+  };
+
+  return (
+    <Card className="shadow-lg border-0 bg-white">
+      <CardHeader className="border-b border-slate-100 flex-row items-center justify-between">
+        <h3 className="text-lg font-semibold text-slate-900">
+          Pergunta {questionNumber}
+        </h3>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onDelete(question.id)}
+          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </CardHeader>
+      
+      <CardContent className="p-6 space-y-6">
+        <div className="space-y-4">
+          <div>
+            <Label className="text-sm font-medium text-slate-700 mb-2 block">
+              Texto da Pergunta
+            </Label>
+            <Input
+              placeholder="Digite sua pergunta aqui..."
+              value={question.text}
+              onChange={(e) => onUpdate(question.id, { text: e.target.value })}
+              className="border-slate-200 focus:border-blue-500"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm font-medium text-slate-700 mb-2 block">
+                Tipo de Pergunta
+              </Label>
+              <Select value={question.type} onValueChange={handleTypeChange}>
+                <SelectTrigger className="border-slate-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="multiple_choice">Múltipla Escolha</SelectItem>
+                  <SelectItem value="text">Texto Livre</SelectItem>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="number">Número</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id={`required-${question.id}`}
+                checked={question.required}
+                onCheckedChange={(checked) => onUpdate(question.id, { required: checked })}
+              />
+              <Label htmlFor={`required-${question.id}`} className="text-sm font-medium text-slate-700">
+                Pergunta obrigatória
+              </Label>
+            </div>
+          </div>
+        </div>
+
+        {question.type === "multiple_choice" && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Label className="text-sm font-medium text-slate-700">
+                Opções de Resposta
+              </Label>
+              <div className="flex items-center gap-1 text-amber-600">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-xs">Configure limites para controlar disponibilidade</span>
+              </div>
+            </div>
+            
+            {question.options?.map((option, index) => (
+              <div key={index} className="flex items-center gap-3 p-4 bg-slate-50 rounded-lg">
+                <div className="flex-1">
+                  <Input
+                    placeholder={`Opção ${index + 1}`}
+                    value={option.text}
+                    onChange={(e) => updateOption(index, 'text', e.target.value)}
+                    className="bg-white border-slate-200"
+                  />
+                </div>
+                
+                <div className="w-32">
+                  <Label className="text-xs text-slate-600 mb-1 block">Limite</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={option.limit}
+                    onChange={(e) => updateOption(index, 'limit', parseInt(e.target.value) || 0)}
+                    className="bg-white border-slate-200"
+                  />
+                </div>
+                
+                {question.options.length > 2 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeOption(index)}
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            
+            <Button
+              variant="outline"
+              onClick={addOption}
+              className="w-full border-dashed border-slate-300 text-slate-600 hover:bg-slate-50"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Adicionar Opção
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
